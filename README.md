@@ -1,9 +1,8 @@
-# Weakly Supervised CLIP Outperforms a 7B Open-Source VLM on Bi-Temporal Satellite Change Classification
+# Weakly Supervised CLIP Outperforms a 7B Open-Source Vision-Language Model on Bi-Temporal Satellite Change Classification: A Systematic Empirical Benchmark
 
-Official code, weak labels, and trained checkpoints for the IEEE GRSL letter:
+Official code, weak labels, and trained checkpoints for the paper (under major revision):
 
-> **Salman Sajid.** *Weakly Supervised CLIP Outperforms a 7B Open-Source Vision–Language Model on Bi-Temporal Satellite Change Classification.* IEEE Geoscience and Remote Sensing Letters, under review, 2026.
-> Preprint: `arXiv:2606.XXXXX` *(to be assigned)*
+> **Salman Sajid.** *Weakly Supervised CLIP Outperforms a 7B Open-Source Vision-Language Model on Bi-Temporal Satellite Change Classification: A Systematic Empirical Benchmark.* SPIE Journal of Applied Remote Sensing (JARS), manuscript JARS-260830-1, under review, 2026.
 > Affiliation: School of Electrical Engineering and Computer Science (SEECS), National University of Sciences and Technology (NUST), Islamabad, Pakistan
 > Contact: `salmansajidsattar@gmail.com`
 
@@ -11,234 +10,202 @@ Official code, weak labels, and trained checkpoints for the IEEE GRSL letter:
 
 ## TL;DR
 
-We ask whether a current open-source 7B-parameter Vision-Language Model (VLM) can classify bi-temporal change on satellite imagery zero-shot. On a controlled 1849-pair test split from LEVIR-CC, we compare three supervision regimes that share the same labels and the same metric:
+Can an open-source vision-language model (VLM) classify bi-temporal change on satellite imagery zero-shot, and does the answer depend on which VLM? This study benchmarks five supervision regimes on a shared 1849-pair LEVIR-CC test split, all evaluated under the same metric:
 
 | Method | Trainable params | Macro-F1 [95% CI] |
 |---|---|---|
-| Random baseline | 0 | 0.501 [0.478, 0.523] |
-| **LLaVA-7B zero-shot** (parseable only, n=1708) | 0 | 0.501 [0.478, 0.526] |
-| LLaVA-7B zero-shot (worst-case) | 0 | 0.464 [0.440, 0.484] |
-| Zero-shot CLIP, *f₂* only | 0 | 0.347 |
-| Zero-shot CLIP, *f₂ − f₁* | 0 | 0.588 [0.563, 0.611] |
-| **Frozen CLIP + concat head (ours)** | ~1 M | **0.882 [0.866, 0.896]** |
+| LLaVA-1.5-7B zero-shot | 0 | 0.501 [0.478, 0.526] |
+| Zero-shot CLIP ViT-B/32 (temporal diff) | 0 | 0.588 [0.563, 0.611] |
+| RemoteCLIP zero-shot (temporal diff) | 0 | 0.603 [0.582, 0.626] |
+| Qwen2.5-VL-7B zero-shot | 0 | 0.807 [0.789, 0.824] |
+| **Frozen CLIP + concat head (ours)** | ~139.6K | **0.882 [0.866, 0.896]** |
 
-McNemar tests reject equality of the trained head with either zero-shot regime (LLaVA: χ²=423.5, p<10⁻¹⁰⁰; CLIP *f₂−f₁*: χ²=401.4, p<10⁻⁹⁹). A 44-pair hand validation of the caption-derived labels yielded κ=0.72 (substantial agreement).
+The trained head significantly outperforms Qwen2.5-VL-7B on the full weak-labelled test set (p = 5.5x10^-13) and LLaVA-1.5-7B (p < 10^-99). RemoteCLIP is not significantly different from generic CLIP (p = 0.27) — the gain over zero-shot CLIP comes from weak supervision, not a better-adapted encoder. A five-variant fusion ablation shows simple concatenation is the best head design; a cross-attention variant with ~962K params (nearly 7x more) does not help.
 
-**Read the result as a transfer limitation**, not a verdict on VLMs in general: a 7B open-source VLM does not, on its own, support discriminative bi-temporal satellite change reasoning within the prompt budget we explored, while ~1M parameters of caption-supervised classifier closes most of the gap.
+**Labels are caption-derived, not ground truth.** A 183-pair hand-validated subset (79.8% agreement with the weak labels, kappa = 0.596) is used to re-score every method: the trained head drops to 0.794 [0.729, 0.850], Qwen2.5-VL-7B reaches 0.749 [0.682, 0.809] — a gap that is no longer statistically significant at this sample size (p = 0.22) — while LLaVA-1.5-7B remains at chance under both label sources (0.515 [0.440, 0.591] on hand labels).
 
-The entire pipeline reproduces on a single CPU in under a day.
+**Read this as a generation-dependent result, not a fixed 7B-scale limitation**: an older instruction-tuned VLM (LLaVA-1.5-7B) fails outright at this task, a newer one (Qwen2.5-VL) approaches the cost of full supervision, and a ~140K-parameter caption-supervised classifier remains competitive with or ahead of both at a fraction of the inference cost. The supervised pipeline runs end-to-end on a single CPU.
 
 ---
 
 ## What's in this repository
 
+This repo contains the reproducibility code only — the paper source, generated data, and large run artefacts are not tracked here (see `.gitignore`).
+
 ```
 .
-├── paper/                         # the LaTeX source and PDF of the letter
-│   ├── grsl_letter.tex
-│   ├── references.bib
-│   ├── SUBMISSION_CHECKLIST.md    # internal: pre-submission steps
-│   └── REVIEWER_DEFENSE.md        # internal: anticipated reviewer rebuttals
-├── configs/                       # YAML configs, one per ablation variant
-│   ├── default.yaml               # headline model: frozen CLIP + concat MLP
-│   ├── ablation_t1_only.yaml
-│   ├── ablation_t2_only.yaml
-│   ├── ablation_concat.yaml
-│   ├── ablation_diff.yaml
-│   └── ablation_full.yaml         # cross-attention head, 12× larger
-├── scripts/                       # runnable entry points
-│   ├── download_levir_cc.py       # one-time dataset download
-│   ├── build_weak_labels.py       # caption rule → binary labels
-│   ├── extract_clip_features.py   # one-time CLIP feature cache
-│   ├── train.py                   # train one config
-│   ├── eval.py                    # evaluate one checkpoint
-│   ├── test.py                    # test-split eval + dump fused features
-│   ├── run_ablations.py           # 5 variants × 3 seeds
-│   ├── run_classical_baselines.py # LogReg, Linear SVM, kNN on cached features
-│   ├── eval_clip_zero_shot.py     # zero-shot CLIP baseline (no training)
-│   ├── eval_vlm_zero_shot.py      # zero-shot LLaVA via Ollama
-│   ├── eval_llava_prompts.py      # prompt-sensitivity study
-│   ├── validate_weak_labels.py    # interactive 50-pair hand validation
-│   ├── run_stats.py               # bootstrap CIs + McNemar on Table I
-│   └── make_figures.py            # paper figures from a run directory
-├── src/geoconstruct/              # the actual library
-│   ├── data/                      # caption rules, weak-label builder, cached dataset
-│   ├── models/                    # frozen CLIP, temporal head, retrieval explainer
-│   ├── losses/                    # class-weighted cross entropy
-│   ├── trainers/                  # CPU-friendly training loop
-│   ├── evaluation/                # macro-F1 + sklearn report
-│   ├── visualization/             # matplotlib-only figure helpers
-│   └── utils/                     # seed, logging, YAML config
-├── outputs/                       # all generated artefacts
-│   ├── labels/                    # released weak labels (train/val/test JSON)
-│   ├── stats/                     # bootstrap CIs + McNemar (Table I numbers)
-│   └── runs/                      # checkpoints + metrics
+├── configs/                        # YAML configs, one per ablation variant
+│   ├── default.yaml                # cross-attention head ("full" variant, used in the ablation table)
+│   ├── ablation_concat.yaml        # headline model: frozen CLIP + concat MLP (~139.6K params)
+│   ├── ablation_t1_only.yaml       # single-stream, image 1 only (~74K params)
+│   ├── ablation_t2_only.yaml       # single-stream, image 2 only (~74K params)
+│   └── ablation_diff.yaml          # temporal-difference fusion
+├── scripts/                        # CPU-only runnable entry points
+│   ├── download_levir_cc.py        # one-time dataset download
+│   ├── build_weak_labels.py        # caption rule → binary labels
+│   ├── extract_clip_features.py    # one-time CLIP feature cache
+│   ├── train.py                    # train one config
+│   ├── eval.py                     # evaluate one checkpoint
+│   ├── test.py                     # test-split eval + dump fused features
+│   ├── run_ablations.py            # 5 variants x 3 seeds
+│   ├── run_classical_baselines.py  # LogReg, Linear SVM, kNN on cached features
+│   ├── eval_clip_zero_shot.py      # zero-shot CLIP baseline (no training)
+│   ├── eval_vlm_zero_shot.py       # zero-shot LLaVA-1.5-7B via Ollama
+│   ├── eval_llava_prompts.py       # prompt-sensitivity study
+│   ├── eval_on_hand_validated_subset.py  # re-score every method on the 183-pair hand-labelled subset
+│   ├── validate_weak_labels.py     # interactive hand-validation tool
+│   ├── count_head_params.py        # verifies the exact trainable-parameter counts quoted in the paper
+│   ├── run_stats.py                # bootstrap CIs + McNemar tests
+│   ├── make_figures.py             # paper figures from a run directory
+│   └── kaggle/                     # GPU-dependent revision experiments (see scripts/kaggle/README_KAGGLE.md)
+│       ├── eval_qwen2vl.py         # Qwen2.5-VL-7B zero-shot baseline
+│       ├── eval_remoteclip.py      # RemoteCLIP zero-shot baseline
+│       ├── run_threshold_sensitivity.py  # 2/5, 3/5, 4/5 caption-agreement threshold sweep
+│       ├── make_qualitative_figure.py    # success/failure qualitative examples figure
+│       ├── make_tsne_figure.py     # t-SNE separability figure
+│       ├── eval_llava_fewshot.py, eval_llava_single_image.py, extract_llava_features.py,
+│       │   train_linear_probe_llava.py, eval_dropped_pairs.py, setup_kaggle.py
+│       └── README_KAGGLE.md        # Kaggle session playbook for the GPU-dependent experiments
+├── src/geoconstruct/                # the library
+│   ├── data/                        # caption rules, weak-label builder, cached dataset
+│   ├── models/                      # frozen CLIP, temporal head (concat/diff/single-stream/cross-attn), retrieval explainer
+│   ├── losses/                      # class-weighted cross entropy
+│   ├── trainers/                    # CPU-friendly training loop
+│   ├── evaluation/                  # macro-F1 + sklearn report
+│   ├── visualization/                # matplotlib-only figure helpers
+│   └── utils/                       # seed, logging, YAML config
 ├── requirements.txt
-└── README.md                      # this file
+└── README.md                        # this file
 ```
+
+Running the scripts locally will generate `data/`, `outputs/` (labels, cached features, checkpoints, stats, figures) — all gitignored, since they're either large, regenerable, or (for `data/`) third-party.
 
 ---
 
 ## Reproducing the headline numbers
 
-The full pipeline runs end-to-end on a laptop CPU; no GPU is required. Total wall-clock time is roughly 6–8 hours, dominated by the LLaVA-7B zero-shot evaluation. Everything else is well under one hour.
+The core pipeline (everything except the Qwen2.5-VL and RemoteCLIP baselines, which need a GPU — see `scripts/kaggle/`) runs end-to-end on a laptop CPU.
 
 ### 0. Environment
-
-Python 3.10+ is recommended. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-The full requirement list is in `requirements.txt`. Key packages:
+Key packages: `torch` (CPU build is sufficient), `open_clip_torch` (frozen CLIP ViT-B/32 backbone), `numpy`/`pandas`/`scikit-learn`/`matplotlib`/`seaborn`, `huggingface_hub`/`transformers`, `pyyaml`, `tqdm`.
 
-- `torch` (CPU build is sufficient)
-- `open_clip_torch` for the frozen CLIP ViT-B/32 backbone
-- `numpy`, `pandas`, `scikit-learn`, `matplotlib`, `seaborn`
-- `huggingface_hub`, `transformers` for dataset download
-- `pyyaml`, `tqdm`
-
-For the LLaVA-7B baseline you additionally need [Ollama](https://ollama.com):
+For the LLaVA-1.5-7B baseline you additionally need [Ollama](https://ollama.com):
 
 ```bash
-# install Ollama (see https://ollama.com), then:
 ollama pull llava:7b
 ollama serve   # in a separate terminal
 ```
 
-### 1. Dataset (~30 min, ~2.5 GB)
+### 1. Dataset
 
 ```bash
 python scripts/download_levir_cc.py
 ```
 
-This pulls LEVIR-CC from Hugging Face into `data/LEVIR_CC/`. The dataset is by Liu et al. (TGRS 2022); please cite their paper if you use it.
+Pulls LEVIR-CC from Hugging Face into `data/LEVIR_CC/`. Dataset by Liu et al. (TGRS 2022); please cite their paper if you use it.
 
-### 2. Build weak labels (1 min)
+### 2. Build weak labels
 
 ```bash
 python scripts/build_weak_labels.py
 ```
 
-Applies the caption-rule majority vote (≥3 of 5 captions per pair must agree on a class; ambiguous pairs are dropped). Writes per-split JSONs to `outputs/labels/`.
+Applies the caption-rule majority vote (default: >=3 of 5 captions must agree; ambiguous pairs dropped). Writes per-split JSONs to `outputs/labels/`.
 
-**The released label files** (`outputs/labels/{train,val,test}_labels.json`) are the artefact most readers will want. They map each pair ID to its binary label (`0` = no_change, `1` = completed) and are produced by the rules in `src/geoconstruct/data/captions.py`.
-
-### 3. Extract frozen CLIP features (~20 min)
+### 3. Extract frozen CLIP features
 
 ```bash
 python scripts/extract_clip_features.py
 ```
 
-Runs CLIP ViT-B/32 (OpenAI weights, via `open_clip`) once over both images of every labelled pair. Cached features are written to `outputs/features/{train,val,test}_features.npz`. All downstream training reads from this cache; the backbone is never re-run.
+Runs CLIP ViT-B/32 (OpenAI weights) once over every labelled pair; cached to `outputs/features/`. All downstream training reads from this cache.
 
-### 4. Train the headline head (3–8 min)
+### 4. Train the headline head
 
 ```bash
-python scripts/train.py --config configs/default.yaml
+python scripts/train.py --config configs/ablation_concat.yaml
 ```
 
-Trains the `[f₁; f₂]` concat MLP on the weak labels with AdamW, lr=1e-3, batch=64, label smoothing 0.05, `ReduceLROnPlateau`, early stopping at patience 10. Best checkpoint is saved to `outputs/runs/concat_seed42/best.pt`.
+Trains the `[f1; f2]` concatenation MLP (~139.6K trainable params) on the weak labels. Best checkpoint saved to `outputs/runs/concat_seed42/best.pt`.
 
-### 5. Run the 5-variant × 3-seed ablation (~45 min)
+### 5. Fusion ablation (5 variants x 3 seeds)
 
 ```bash
 python scripts/run_ablations.py
 ```
 
-Produces Table III of the paper (fusion ablation: `f1`, `f2`, `f2-f1`, `[f1;f2]`, cross-attention).
+Reproduces the ablation table: single-stream (f1 or f2 only, ~74K params each), temporal-difference, concatenation, and cross-attention (~962K params).
 
-### 6. Classical baselines (~2 min)
+### 6. Classical baselines
 
 ```bash
 python scripts/run_classical_baselines.py
 ```
 
-Trains Logistic Regression, Linear SVM, and k-NN on the same frozen features. Produces Table IV.
-
-### 7. Zero-shot CLIP baselines (~3 min)
+### 7. Zero-shot CLIP / RemoteCLIP baselines
 
 ```bash
-python scripts/eval_clip_zero_shot.py --fuse t2
 python scripts/eval_clip_zero_shot.py --fuse diff
+python scripts/kaggle/eval_remoteclip.py   # GPU
 ```
 
-Per-pair predictions are saved to `outputs/runs/clip_zero_shot/predictions_test_*.jsonl`.
-
-### 8. Zero-shot LLaVA-7B (~5 hr CPU)
+### 8. Zero-shot VLM baselines
 
 ```bash
-# in one terminal: ollama serve
+# LLaVA-1.5-7B (CPU, via Ollama — ~5 hr)
 python scripts/eval_vlm_zero_shot.py
+
+# Qwen2.5-VL-7B (GPU, 4-bit NF4 — see scripts/kaggle/README_KAGGLE.md)
+python scripts/kaggle/eval_qwen2vl.py
 ```
 
-Predictions saved to `outputs/runs/vlm_zero_shot/predictions_test.jsonl`. The script handles parsing of LLaVA's free-form responses; 7.6% of responses fall outside the binary label vocabulary on our run and are reported separately.
-
-### 9. Prompt-sensitivity study (~1 hr CPU)
+### 9. Hand-validation re-scoring
 
 ```bash
-python scripts/eval_llava_prompts.py
+python scripts/validate_weak_labels.py
+python scripts/eval_on_hand_validated_subset.py
 ```
 
-Evaluates LLaVA-7B under three prompt formulations (direct, JSON, few-shot) on a balanced 200-pair subsample of the test split. Produces Table V.
+Reproduces the 183-pair hand-validated re-scoring (79.8% agreement, kappa = 0.596) behind the paper's Limitations analysis.
 
-### 10. Hand validation of weak labels (~30 min of your time)
+### 10. Threshold sensitivity
 
 ```bash
-python scripts/validate_weak_labels.py --n 50
+python scripts/kaggle/run_threshold_sensitivity.py
 ```
 
-Opens each pair in your browser and asks you to vote `j` (no_change), `k` (completed), `s` (skip), or `q` (quit). Reports Cohen's κ at the end. Our run yielded κ = 0.72 on 44 judged pairs.
+Reproduces the 2/5, 3/5, 4/5 caption-agreement sweep (macro-F1 0.882 / 0.882 / 0.887).
 
-### 11. Statistical tests (~30 sec)
+### 11. Statistical tests
 
 ```bash
 python scripts/run_stats.py
 ```
 
-Reads cached predictions from steps 4, 7, 8 and produces:
-
-- **Bootstrap 95% CIs** (1000 resamples) on macro-F1 for every Table I row
-- **McNemar tests** between the trained head and each zero-shot regime
-- **Worst-case LLaVA** macro-F1 (unparseable responses counted as errors)
-
-Outputs are written to `outputs/stats/{headline_ci.json, mcnemar.json, llava_worstcase.json, latex_snippet.tex}`.
-
----
-
-## Released artefacts
-
-These are the files that constitute the paper's reproducibility contribution. All are in this repository:
-
-| Artefact | Location | What it is |
-|---|---|---|
-| Caption rule set | `src/geoconstruct/data/captions.py` | The regex patterns + majority-vote logic that turn LEVIR-CC captions into binary labels. |
-| Per-pair weak labels | `outputs/labels/{train,val,test}_labels.json` | The labels themselves: a dictionary `{pair_id: 0 or 1}`. |
-| Coverage report | `outputs/labels/label_stats.json` | Per-split class balance and drop rate. |
-| Trained checkpoint (headline) | `outputs/runs/concat_seed42/best.pt` | The model that achieves Macro-F1 0.882 on the test split. |
-| 3-seed ablation results | `outputs/runs/*_seed{42,123,999}/metrics_test.json` | Five fusion variants × three seeds. |
-| Hand-validated subset + κ | `outputs/label_validation/summary_test.json` | The 44-pair hand-validation results behind the κ=0.72 claim. |
-| Bootstrap CIs + McNemar | `outputs/stats/*.json` | The statistical numbers in Table I. |
+Bootstrap 95% CIs (1000 resamples) and McNemar tests for every reported comparison.
 
 ---
 
 ## Citation
 
-If you use any of these artefacts (code, weak labels, trained checkpoints, or the caption rules) in academic work, please cite:
-
 ```bibtex
 @article{sajid2026weakclipvlm,
   author  = {Sajid, Salman},
   title   = {Weakly Supervised {CLIP} Outperforms a 7B Open-Source
-             Vision--Language Model on Bi-Temporal Satellite Change Classification},
-  journal = {IEEE Geoscience and Remote Sensing Letters},
+             Vision--Language Model on Bi-Temporal Satellite Change
+             Classification: A Systematic Empirical Benchmark},
+  journal = {Journal of Applied Remote Sensing},
   year    = {2026},
-  note    = {Under review. Preprint: arXiv:2606.XXXXX}
+  note    = {Manuscript JARS-260830-1, under review}
 }
 ```
 
-And please also cite the underlying dataset:
+Please also cite the underlying dataset:
 
 ```bibtex
 @article{liu2022levircc,
@@ -259,18 +226,16 @@ And please also cite the underlying dataset:
 
 Code is released under the **MIT License** (see `LICENSE`).
 
-The released weak labels (`outputs/labels/*.json`) are derivative work from the LEVIR-CC captions and are released under the **CC-BY-4.0** license, consistent with the source dataset.
+The released weak labels (generated locally to `outputs/labels/*.json`) are derivative work from the LEVIR-CC captions and are released under **CC-BY-4.0**, consistent with the source dataset.
 
 ---
 
 ## Acknowledgments
 
-This work was carried out at SEECS, NUST, Islamabad. Thanks to the LEVIR-CC authors for releasing the captioned dataset that made this study possible, and to the Ollama and `open_clip` maintainers for the open-source infrastructure that enabled a CPU-only reproduction.
+This work was carried out at SEECS, NUST, Islamabad. Thanks to the LEVIR-CC authors for releasing the captioned dataset that made this study possible, and to the Ollama, `open_clip`, and Hugging Face `transformers` maintainers for the open-source infrastructure.
 
 ---
 
 ## Contact
 
 For questions about the code or paper, please open a GitHub issue or email `salmansajidsattar@gmail.com`.
-
-For reviewing the paper itself, the latest PDF is in `paper/grsl_letter.pdf` and the source in `paper/grsl_letter.tex`.
