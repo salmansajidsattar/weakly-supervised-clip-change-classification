@@ -1,0 +1,28 @@
+# Core
+torch>=2.1
+torchvision>=0.16
+numpy>=1.24
+pillow>=10.0
+tqdm>=4.66
+
+# CLIP + HF
+open_clip_torch>=2.24
+huggingface_hub>=0.23
+transformers>=4.40
+
+# Data / config
+pyyaml>=6.0
+pandas>=2.0
+
+# Eval / viz
+scikit-learn>=1.3
+matplotlib>=3.7
+seaborn>=0.13
+
+# Optional ONNX fallback for faster CPU CLIP (only if needed)
+# onnxruntime>=1.17
+
+# Optional: VLM zero-shot API backends (only needed for scripts/eval_vlm_zero_shot.py)
+# anthropic>=0.40
+# openai>=1.40
+# google-genai>=0.4

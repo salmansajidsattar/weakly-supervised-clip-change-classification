@@ -1,0 +1,35 @@
+run:
+  name: concat
+  seed: 42
+  deterministic: true
+  device: cpu
+  out_dir: outputs/runs/concat_seed42
+paths:
+  data_root: data/LEVIR_CC/Levir-CC-dataset
+  captions_json: data/LEVIR_CC/Levir-CC-dataset/LevirCCcaptions.json
+  images_root: data/LEVIR_CC/Levir-CC-dataset/images
+  labels_dir: outputs/labels
+  features_dir: outputs/features
+clip:
+  model_name: ViT-B-32
+  pretrained: openai
+  image_batch_size: 8
+labels:
+  min_votes: 3
+head:
+  variant: concat
+  embed_dim: 512
+  hidden: 128
+  num_classes: 2
+  dropout: 0.1
+loss:
+  class_weighted: true
+  label_smoothing: 0.05
+optim:
+  lr: 0.001
+  weight_decay: 0.0001
+  batch_size: 64
+  n_epochs: 100
+  num_workers: 0
+  scheduler: plateau
+  early_stopping_patience: 10

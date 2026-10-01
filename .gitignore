@@ -1,0 +1,44 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Heavy artifacts (anchored to repo root only -- do NOT drop the leading
+# slash, or this also matches src/geoconstruct/data/ and silently excludes
+# real source code)
+/data/
+/outputs/
+*.npz
+*.pt
+*.ckpt
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+/GEO_Construct_arxiv/
+/paper/
+
+# Legacy / large binaries that don't belong in git
+/LEVIR CD/
+*.rar
+*.zip
+*.docx
+
+# Internal planning docs / superseded notes -- not relevant to the
+# public reproducibility repo
+/PHASE0_BASELINE_COMPARISON.md
+/PHASE0_CPU_EXECUTION.md
+/PHASE0_FEASIBILITY_REPORT.md
+/PHASE0_LOCKED_PLAN.md
+/PHASE0_MVP_PLAN.md
+/PHASE0_RECOMMENDATION.md
+/DEV_README.md
+/LICENSE.txt
