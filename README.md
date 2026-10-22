@@ -1,8 +1,8 @@
 # Weakly Supervised CLIP Outperforms a 7B Open-Source Vision-Language Model on Bi-Temporal Satellite Change Classification: A Systematic Empirical Benchmark
 
-Official code, weak labels, and trained checkpoints for the paper (under major revision):
+Official code, weak labels, and trained checkpoints for the paper (revision submitted):
 
-> **Salman Sajid.** *Weakly Supervised CLIP Outperforms a 7B Open-Source Vision-Language Model on Bi-Temporal Satellite Change Classification: A Systematic Empirical Benchmark.* SPIE Journal of Applied Remote Sensing (JARS), manuscript JARS-260830-1, under review, 2026.
+> **Salman Sajid.** *Weakly Supervised CLIP Outperforms a 7B Open-Source Vision-Language Model on Bi-Temporal Satellite Change Classification: A Systematic Empirical Benchmark.* SPIE Journal of Applied Remote Sensing (JARS), manuscript JARS-260830-2, revision submitted, 2026.
 > Affiliation: School of Electrical Engineering and Computer Science (SEECS), National University of Sciences and Technology (NUST), Islamabad, Pakistan
 > Contact: `salmansajidsattar@gmail.com`
 
@@ -201,7 +201,7 @@ Bootstrap 95% CIs (1000 resamples) and McNemar tests for every reported comparis
              Classification: A Systematic Empirical Benchmark},
   journal = {Journal of Applied Remote Sensing},
   year    = {2026},
-  note    = {Manuscript JARS-260830-1, under review}
+  note    = {Manuscript JARS-260830-2, revision submitted}
 }
 ```
 
